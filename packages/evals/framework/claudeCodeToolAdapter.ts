@@ -47,7 +47,13 @@ export interface PreparedClaudeCodeToolAdapter {
     toolName: string,
     input: Record<string, unknown>,
   ) => Promise<Record<string, unknown>>;
+  collectMetrics?: () => Promise<Record<string, ClaudeCodeMetricValue>>;
   cleanup: () => Promise<void>;
+}
+
+export interface ClaudeCodeMetricValue {
+  count: number;
+  value: number;
 }
 
 export interface PreparedBrowseCliHarnessAdapter {
@@ -672,6 +678,7 @@ async function prepareV4CodeAdapter(
         },
       },
     });
+    const initializedStagehand = stagehand;
 
     return {
       toolSurface: input.toolSurface,
@@ -691,6 +698,7 @@ async function prepareV4CodeAdapter(
         };
       },
       promptInstructions: buildV4CodePromptInstructions(input.toolSurface, input.plan),
+      collectMetrics: () => collectV4StagehandMetrics(initializedStagehand, aiEnabled),
       cleanup: async () => {
         try {
           await stagehand?.close();
@@ -723,6 +731,52 @@ async function prepareV4CodeAdapter(
     }
     throw error;
   }
+}
+
+export async function collectV4StagehandMetrics(
+  stagehand: Pick<StagehandSdk.Stagehand, "metrics">,
+  aiEnabled: boolean,
+): Promise<Record<string, ClaudeCodeMetricValue>> {
+  if (!aiEnabled) {
+    return buildV4StagehandMetrics();
+  }
+
+  try {
+    return buildV4StagehandMetrics(await stagehand.metrics());
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      /^Method not implemented by the smoke runtime$/i.test(error.message)
+    ) {
+      return buildV4StagehandMetrics();
+    }
+    throw error;
+  }
+}
+
+export function buildV4StagehandMetrics(values?: object): Record<string, ClaudeCodeMetricValue> {
+  const metrics: Record<string, ClaudeCodeMetricValue> = {
+    v4_stagehand_metrics_available: {
+      count: 1,
+      value: values ? 1 : 0,
+    },
+  };
+  if (!values) return metrics;
+
+  for (const [name, value] of Object.entries(values)) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new EvalsError(`V4 Stagehand metric "${name}" is not a finite number.`);
+    }
+    metrics[`v4_${camelCaseToSnakeCase(name)}`] = {
+      count: 1,
+      value,
+    };
+  }
+  return metrics;
+}
+
+function camelCaseToSnakeCase(value: string): string {
+  return value.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
 }
 
 async function buildPlaywrightRunMcpServers(input: {

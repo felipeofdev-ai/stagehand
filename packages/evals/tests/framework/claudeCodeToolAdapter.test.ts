@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  buildV4StagehandMetrics,
+  collectV4StagehandMetrics,
   executeV4AiSnippet,
   executeV4DeterministicSnippet,
   getBrowseCliAllowedTools,
@@ -171,6 +173,45 @@ describe("claude code tool adapter resolution", () => {
       action: { instruction: "click the link", success: true },
       parsed: { heading: "Example Domain" },
     });
+  });
+
+  it("maps Stagehand metrics into prefixed eval metrics", () => {
+    expect(
+      buildV4StagehandMetrics({
+        actPromptTokens: 12,
+        totalInferenceTimeMs: 340,
+      }),
+    ).toEqual({
+      v4_stagehand_metrics_available: { count: 1, value: 1 },
+      v4_act_prompt_tokens: { count: 1, value: 12 },
+      v4_total_inference_time_ms: { count: 1, value: 340 },
+    });
+    expect(buildV4StagehandMetrics()).toEqual({
+      v4_stagehand_metrics_available: { count: 1, value: 0 },
+    });
+  });
+
+  it("marks deterministic and known-unimplemented Stagehand metrics unavailable", async () => {
+    const metrics = async () => {
+      throw new Error("Method not implemented by the smoke runtime");
+    };
+
+    await expect(collectV4StagehandMetrics({ metrics }, false)).resolves.toEqual({
+      v4_stagehand_metrics_available: { count: 1, value: 0 },
+    });
+    await expect(collectV4StagehandMetrics({ metrics }, true)).resolves.toEqual({
+      v4_stagehand_metrics_available: { count: 1, value: 0 },
+    });
+  });
+
+  it("does not hide unexpected Stagehand metrics failures", async () => {
+    const metrics = async () => {
+      throw new Error("metrics transport failed");
+    };
+
+    await expect(collectV4StagehandMetrics({ metrics }, true)).rejects.toThrow(
+      "metrics transport failed",
+    );
   });
 
   it("supports browse_cli as the first Codex tool surface", () => {
