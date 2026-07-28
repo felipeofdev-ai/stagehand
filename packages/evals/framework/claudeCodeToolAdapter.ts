@@ -8,7 +8,11 @@ import type { Browser, BrowserContext, Page } from "playwright";
 import type { AvailableModel } from "stagehand-v3";
 import { z } from "zod/v4";
 import { EvalsError } from "../errors.js";
-import { buildStagehandInitParams, resolveModelApiKey } from "../initStagehand.js";
+import {
+  buildStagehandInitParams,
+  requireBrowserbaseApiKey,
+  resolveModelApiKey,
+} from "../initStagehand.js";
 import type { EvalLogger } from "../logger.js";
 import {
   BROWSE_CLI_BUILD_ARTIFACTS,
@@ -229,15 +233,14 @@ export function resolveClaudeCodeStartupProfile(
   requested?: StartupProfile,
 ): StartupProfile {
   if (toolSurface === "v4_code_deterministic" || toolSurface === "v4_code") {
-    if (environment !== "LOCAL") {
-      throw new EvalsError(`${toolSurface} currently supports only the LOCAL environment.`);
-    }
-    if (requested && requested !== "tool_launch_local") {
+    const expected =
+      environment === "BROWSERBASE" ? "tool_create_browserbase" : "tool_launch_local";
+    if (requested && requested !== expected) {
       throw new EvalsError(
-        `${toolSurface} requires startup profile "tool_launch_local"; received "${requested}".`,
+        `${toolSurface} requires startup profile "${expected}" in ${environment}; received "${requested}".`,
       );
     }
-    return "tool_launch_local";
+    return expected;
   }
 
   if (requested) return requested;
@@ -607,9 +610,11 @@ async function prepareV4CodeAdapter(
     startupProfile: StartupProfile;
   },
 ): Promise<PreparedClaudeCodeToolAdapter> {
-  if (input.environment !== "LOCAL" || input.startupProfile !== "tool_launch_local") {
+  const expectedStartupProfile =
+    input.environment === "BROWSERBASE" ? "tool_create_browserbase" : "tool_launch_local";
+  if (input.startupProfile !== expectedStartupProfile) {
     throw new EvalsError(
-      `${input.toolSurface} requires LOCAL with startup profile tool_launch_local.`,
+      `${input.toolSurface} requires ${input.environment} with startup profile ${expectedStartupProfile}.`,
     );
   }
   const aiEnabled = input.toolSurface === "v4_code";
@@ -632,9 +637,11 @@ async function prepareV4CodeAdapter(
   try {
     stagehand = new StagehandSdk.Stagehand(
       buildStagehandInitParams({
-        env: "LOCAL",
+        env: input.environment,
         logger: input.logger,
         model,
+        browserbaseApiKey:
+          input.environment === "BROWSERBASE" ? requireBrowserbaseApiKey() : undefined,
       }),
     );
     await stagehand.init();
@@ -652,7 +659,7 @@ async function prepareV4CodeAdapter(
 
     input.logger.log({
       category: "claude_code",
-      message: `Initialized local ${input.toolSurface} runtime for Claude Code run tool.`,
+      message: `Initialized ${input.environment.toLowerCase()} ${input.toolSurface} runtime for Claude Code run tool.`,
       level: 1,
       auxiliary: {
         startupProfile: {

@@ -95,4 +95,20 @@ describe("Stagehand eval logging", () => {
     });
     expect(params).not.toHaveProperty("model");
   });
+
+  it("builds Browserbase initialization parameters for remote code tools", () => {
+    const params = buildStagehandInitParams({
+      env: "BROWSERBASE",
+      browserbaseApiKey: "test-browserbase-key",
+      logger: new EvalLogger(false),
+    });
+
+    expect(params).toMatchObject({
+      browser: { type: "browserbase" },
+      apiKey: "test-browserbase-key",
+      selfHeal: true,
+      logging: { onLog: expect.any(Function) },
+    });
+    expect(params).not.toHaveProperty("model");
+  });
 });
