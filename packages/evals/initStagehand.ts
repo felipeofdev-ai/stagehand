@@ -85,7 +85,7 @@ function createStagehandOnLog(logger: EvalLogger): (event: StagehandLogEvent) =>
 
 export function buildStagehandInitParams(input: {
   env: "LOCAL" | "BROWSERBASE";
-  model: NonNullable<StagehandClientInitParams["model"]>;
+  model?: NonNullable<StagehandClientInitParams["model"]>;
   browserbaseApiKey?: string;
   systemPrompt?: string;
   logger: EvalLogger;
@@ -99,7 +99,7 @@ export function buildStagehandInitParams(input: {
             headless: false,
           },
     ...(input.browserbaseApiKey ? { apiKey: input.browserbaseApiKey } : {}),
-    model: input.model,
+    ...(input.model ? { model: input.model } : {}),
     selfHeal: true,
     ...(input.systemPrompt ? { systemPrompt: input.systemPrompt } : {}),
     logging: { onLog: createStagehandOnLog(input.logger) },

@@ -81,4 +81,18 @@ describe("Stagehand eval logging", () => {
       logging: { onLog: expect.any(Function) },
     });
   });
+
+  it("supports model-free Stagehand initialization for deterministic code tools", () => {
+    const params = buildStagehandInitParams({
+      env: "LOCAL",
+      logger: new EvalLogger(false),
+    });
+
+    expect(params).toMatchObject({
+      browser: { type: "local", headless: false },
+      selfHeal: true,
+      logging: { onLog: expect.any(Function) },
+    });
+    expect(params).not.toHaveProperty("model");
+  });
 });
