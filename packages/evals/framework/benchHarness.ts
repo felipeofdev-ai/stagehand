@@ -164,6 +164,7 @@ export const claudeCodeHarness: BenchHarness = {
         environment: row.config.environment,
         plan,
         logger,
+        model: input.modelName,
       });
       return await runClaudeCodeAgent({
         plan,
