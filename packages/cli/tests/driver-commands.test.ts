@@ -360,6 +360,38 @@ describe("driver commands", () => {
     });
   });
 
+  it("omits undefined coordinate action options from V4 wire requests", async () => {
+    const page = {
+      click: vi.fn().mockResolvedValue(""),
+      dragAndDrop: vi.fn().mockResolvedValue(["", ""]),
+      hover: vi.fn().mockResolvedValue(""),
+      scroll: vi.fn().mockResolvedValue(""),
+    };
+    const manager = {
+      activePage: vi.fn(async () => page),
+    } as unknown as Parameters<NonNullable<(typeof mouseHandlers)["mouse.click"]>>[0];
+
+    await mouseHandlers["mouse.click"]!(manager, { x: 10, y: 20 });
+    await mouseHandlers["mouse.hover"]!(manager, { x: 30, y: 40 });
+    await mouseHandlers["mouse.scroll"]!(manager, {
+      deltaX: 5,
+      deltaY: 500,
+      x: 50,
+      y: 60,
+    });
+    await mouseHandlers["mouse.drag"]!(manager, {
+      fromX: 70,
+      fromY: 80,
+      toX: 90,
+      toY: 100,
+    });
+
+    expect(page.click).toHaveBeenCalledWith(10, 20, {});
+    expect(page.hover).toHaveBeenCalledWith(30, 40, {});
+    expect(page.scroll).toHaveBeenCalledWith(50, 60, 5, 500, {});
+    expect(page.dragAndDrop).toHaveBeenCalledWith(70, 80, 90, 100, {});
+  });
+
   it("fails explicitly for V4 capabilities that are not exposed yet", async () => {
     const manager = {
       resolveSelector: vi.fn((selector: string) => selector),

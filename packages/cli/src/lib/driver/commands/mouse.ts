@@ -17,9 +17,9 @@ export const mouseHandlers: DriverCommandHandlers = {
       .parse(params);
     const page = await manager.activePage();
     const xpath = await page.click(x, y, {
-      button,
-      clickCount,
-      returnXpath: returnXPath,
+      ...(button === undefined ? {} : { button }),
+      ...(clickCount === undefined ? {} : { clickCount }),
+      ...(returnXPath === undefined ? {} : { returnXpath: returnXPath }),
     });
     return returnXPath ? { clicked: true, xpath } : { clicked: true };
   },
@@ -33,7 +33,11 @@ export const mouseHandlers: DriverCommandHandlers = {
       })
       .parse(params);
     const page = await manager.activePage();
-    const xpath = await page.hover(x, y, { returnXpath: returnXPath });
+    const xpath = await page.hover(
+      x,
+      y,
+      returnXPath === undefined ? {} : { returnXpath: returnXPath },
+    );
     return returnXPath ? { hovered: true, xpath } : { hovered: true };
   },
 
@@ -48,9 +52,13 @@ export const mouseHandlers: DriverCommandHandlers = {
       })
       .parse(params);
     const page = await manager.activePage();
-    const xpath = await page.scroll(x, y, deltaX, deltaY, {
-      returnXpath: returnXPath,
-    });
+    const xpath = await page.scroll(
+      x,
+      y,
+      deltaX,
+      deltaY,
+      returnXPath === undefined ? {} : { returnXpath: returnXPath },
+    );
     return returnXPath ? { scrolled: true, xpath } : { scrolled: true };
   },
 
@@ -69,10 +77,10 @@ export const mouseHandlers: DriverCommandHandlers = {
       .parse(params);
     const page = await manager.activePage();
     const [fromXpath, toXpath] = await page.dragAndDrop(fromX, fromY, toX, toY, {
-      button,
-      delay,
-      returnXpath: returnXPath,
-      steps,
+      ...(button === undefined ? {} : { button }),
+      ...(delay === undefined ? {} : { delay }),
+      ...(returnXPath === undefined ? {} : { returnXpath: returnXPath }),
+      ...(steps === undefined ? {} : { steps }),
     });
     return returnXPath
       ? { dragged: true, fromXpath, toXpath, xpath: fromXpath }
