@@ -106,7 +106,7 @@ func TestThinClientUsesGeneratedBoundaryTypes(t *testing.T) {
 	if err := page.Goto(ctx, "https://example.com", nil); err != nil {
 		t.Fatalf("Goto() error = %v", err)
 	}
-	if _, err := client.Act(ctx, "click the link", nil); err != nil {
+	if _, err := client.Act(ctx, ActInstruction("click the link"), nil); err != nil {
 		t.Fatalf("Act() error = %v", err)
 	}
 	if err := client.Close(ctx); err != nil {
@@ -308,7 +308,7 @@ func TestActAcceptsObservedAction(t *testing.T) {
 	if err := client.Init(context.Background()); err != nil {
 		t.Fatalf("Init() error = %v", err)
 	}
-	if _, err := client.Act(context.Background(), action, nil); err != nil {
+	if _, err := client.Act(context.Background(), ObservedAction(action), nil); err != nil {
 		t.Fatalf("Act() error = %v", err)
 	}
 	params, ok := rpc.calls[3].params.(StagehandActParams)
