@@ -29,6 +29,7 @@ export type ResolvedBrowserSource = {
   cdpHeaders?: Record<string, string>;
   browserbaseSessionId?: string;
   preloadedExtension?: boolean;
+  residentBrowserConnection?: boolean;
   keepAlive: boolean;
   close?: () => Promise<void> | void;
 };
@@ -66,6 +67,7 @@ export async function resolveBrowserSource(
       cdpUrl: session.cdpUrl,
       browserbaseSessionId: session.sessionId,
       preloadedExtension: true,
+      residentBrowserConnection: false,
       keepAlive: browser.keepAlive ?? false,
       close: session.close,
     };
@@ -77,6 +79,7 @@ export async function resolveBrowserSource(
     return {
       cdpUrl: launched.cdpUrl,
       ...(launched.preloadedExtension ? { preloadedExtension: true } : {}),
+      residentBrowserConnection: false,
       keepAlive: launchOptions.keepAlive ?? false,
       close: launched.close,
     };
@@ -85,6 +88,7 @@ export async function resolveBrowserSource(
   return {
     cdpUrl: browser.cdpUrl,
     ...(browser.headers === undefined ? {} : { cdpHeaders: browser.headers }),
+    residentBrowserConnection: false,
     keepAlive: true,
   };
 }
@@ -101,7 +105,7 @@ async function launchLocalBrowser(options: LocalBrowserLaunchOptions): Promise<{
     ignoreDefaultFlags: true,
     chromeFlags: localBrowserChromeFlags(options, Launcher.defaultFlags(), Boolean(process.env.CI)),
     userDataDir: options.userDataDir,
-    port: options.port,
+    ...(options.port === undefined ? {} : { port: options.port }),
     logLevel: "silent",
   });
 
