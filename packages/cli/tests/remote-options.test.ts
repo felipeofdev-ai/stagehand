@@ -42,25 +42,19 @@ describe("remote.ts (Browserbase capability)", () => {
   // attribution tag survives and that --verified/--proxies are threaded.
   it("keeps the browse_cli tag and adds no session settings by default", async () => {
     const params = (await remoteStagehandOptions({ kind: "remote" })).browser;
-    expect((params?.userMetadata as Record<string, string>).browse_cli).toBe(
-      "true",
-    );
+    expect((params?.userMetadata as Record<string, string>).browse_cli).toBe("true");
     expect(params).not.toHaveProperty("proxies");
     expect(params).not.toHaveProperty("browserSettings");
   });
 
   it("threads proxies alone without touching browserSettings", async () => {
-    const params = (
-      await remoteStagehandOptions({ kind: "remote", proxies: true })
-    ).browser;
+    const params = (await remoteStagehandOptions({ kind: "remote", proxies: true })).browser;
     expect(params?.proxies).toBe(true);
     expect(params).not.toHaveProperty("browserSettings");
   });
 
   it("threads verified alone into browserSettings without proxies", async () => {
-    const params = (
-      await remoteStagehandOptions({ kind: "remote", verified: true })
-    ).browser;
+    const params = (await remoteStagehandOptions({ kind: "remote", verified: true })).browser;
     expect(params?.browserSettings).toEqual({ verified: true });
     expect(params).not.toHaveProperty("proxies");
   });
@@ -79,9 +73,7 @@ describe("remote.ts (Browserbase capability)", () => {
 
   it("requires an API key", async () => {
     delete process.env.BROWSERBASE_API_KEY;
-    await expect(remoteStagehandOptions({ kind: "remote" })).rejects.toThrow(
-      /BROWSERBASE_API_KEY/,
-    );
+    await expect(remoteStagehandOptions({ kind: "remote" })).rejects.toThrow(/BROWSERBASE_API_KEY/);
   });
 
   it("preserves remote session and live-view output fields", async () => {
@@ -96,8 +88,7 @@ describe("remote.ts (Browserbase capability)", () => {
     ).resolves.toEqual({
       browserbaseDebugUrl: "https://www.browserbase.com/live/session-test",
       browserbaseSessionId: "session-test",
-      browserbaseSessionUrl:
-        "https://www.browserbase.com/sessions/session-test",
+      browserbaseSessionUrl: "https://www.browserbase.com/sessions/session-test",
     });
   });
 });
