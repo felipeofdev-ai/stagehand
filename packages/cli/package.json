@@ -98,7 +98,7 @@
     "lint": "pnpm format:check && pnpm eslint && pnpm check",
     "manifest": "oclif manifest .",
     "test": "pnpm build && vitest run",
-    "test:unit": "vitest run",
+    "test:unit": "pnpm build && vitest run",
     "test:cli": "vitest run",
     "prepublishOnly": "pnpm build"
   },
