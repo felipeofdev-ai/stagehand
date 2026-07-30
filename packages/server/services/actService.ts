@@ -248,14 +248,15 @@ async function getActionFromLLM({
   xpathMap: Record<string, string>;
   context: ActContext;
 }): Promise<{ action?: Action; response: ActInferenceResponse }> {
-  if (!context.model) {
+  const model = context.model;
+  if (!model) {
     throw new Error("An LLM was not configured during Stagehand initialization");
   }
 
   const response = await inference.act({
     instruction,
     domElements,
-    generate: (input) => llmService.generate(context.model, input, context.clientLLMGenerate),
+    generate: (input) => llmService.generate(model, input, context.clientLLMGenerate),
     userProvidedInstructions: context.systemPrompt,
   });
 
