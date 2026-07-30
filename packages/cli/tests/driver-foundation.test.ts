@@ -768,11 +768,12 @@ describe("driver foundation", () => {
 
       expect(Stagehand).toHaveBeenCalledWith(
         expect.objectContaining({
-          env: "LOCAL",
-          localBrowserLaunchOptions: {
+          browser: {
             args: ["--no-focus-on-navigate"],
             headless: false,
+            type: "local",
           },
+          logging: { level: "off" },
         }),
       );
     } finally {
@@ -810,11 +811,12 @@ describe("driver foundation", () => {
 
       expect(Stagehand).toHaveBeenCalledWith(
         expect.objectContaining({
-          env: "LOCAL",
-          localBrowserLaunchOptions: {
+          browser: {
             headless: true,
             ignoreDefaultArgs: ["--enable-automation"],
+            type: "local",
           },
+          logging: { level: "off" },
         }),
       );
     } finally {
@@ -829,18 +831,17 @@ describe("driver foundation", () => {
       kind: "managed-local",
     });
     const page = {
-      targetId: () => "created-target",
+      pageId: "created-target",
     };
     const pages: (typeof page)[] = [];
     const context = {
-      activePage: vi.fn(() => undefined),
-      awaitActivePage: vi.fn(),
+      activePage: vi.fn(async () => undefined),
       newPage: vi.fn(async () => {
         pages.push(page);
         return page;
       }),
-      pages: vi.fn(() => pages),
-      setActivePage: vi.fn(),
+      pages: vi.fn(async () => pages),
+      setActivePage: vi.fn(async () => undefined),
     };
 
     vi.spyOn(
@@ -850,7 +851,6 @@ describe("driver foundation", () => {
     Object.assign(manager, { context });
 
     await expect(manager.pageForOpen()).resolves.toBe(page);
-    expect(context.awaitActivePage).not.toHaveBeenCalled();
     expect(context.newPage).toHaveBeenCalledOnce();
     expect(context.setActivePage).toHaveBeenCalledWith(page);
   });
@@ -861,13 +861,12 @@ describe("driver foundation", () => {
       kind: "managed-local",
     });
     const page = {
-      targetId: () => "existing-target",
+      pageId: "existing-target",
     };
     const context = {
-      activePage: vi.fn(() => undefined),
-      awaitActivePage: vi.fn(),
-      pages: vi.fn(() => [page]),
-      setActivePage: vi.fn(),
+      activePage: vi.fn(async () => undefined),
+      pages: vi.fn(async () => [page]),
+      setActivePage: vi.fn(async () => undefined),
     };
 
     vi.spyOn(
@@ -877,7 +876,6 @@ describe("driver foundation", () => {
     Object.assign(manager, { context });
 
     await expect(manager.activePage()).resolves.toBe(page);
-    expect(context.awaitActivePage).not.toHaveBeenCalled();
     expect(context.setActivePage).toHaveBeenCalledWith(page);
   });
 
@@ -887,15 +885,15 @@ describe("driver foundation", () => {
       kind: "managed-local",
     });
     const page = {
-      targetId: () => "page-1",
+      pageId: "page-1",
       title: vi.fn(async () => "Example"),
-      url: () => "https://example.com",
+      url: async () => "https://example.com",
     };
     const context = {
-      activePage: vi.fn(() => {
+      activePage: vi.fn(async () => {
         throw new Error("No Page found for awaitActivePage: no page available");
       }),
-      pages: vi.fn(() => [page]),
+      pages: vi.fn(async () => [page]),
     };
 
     Object.assign(manager, { context, stagehand: {} });
@@ -925,9 +923,9 @@ describe("driver foundation", () => {
     ).mockResolvedValue();
     Object.assign(manager, {
       context: {
-        pages: () => [
+        pages: async () => [
           {
-            targetId: () => "different-target",
+            pageId: "different-target",
           },
         ],
       },

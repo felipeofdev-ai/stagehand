@@ -4,7 +4,7 @@ import type {
   RemoteInitErrorClassification,
   StagehandConstructorOptions,
 } from "./remote-types.js";
-import type { ConnectionTarget } from "./types.js";
+import type { BrowserbaseIdentity, ConnectionTarget } from "./types.js";
 
 /**
  * Stub Browserbase capability used by `build:local-only`. It contains no API
@@ -33,6 +33,10 @@ export async function remoteStagehandOptions(): Promise<StagehandConstructorOpti
   // Accepts the forwarded-env arg structurally (fewer params is
   // assignable) without naming it, keeping this stub key-name-free.
   throw new Error(DISABLED_MESSAGE);
+}
+
+export async function remoteBrowserbaseIdentity(): Promise<BrowserbaseIdentity> {
+  return {};
 }
 
 export function classifyRemoteInitError(

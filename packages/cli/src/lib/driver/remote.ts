@@ -1,3 +1,4 @@
+import Browserbase from "@browserbasehq/sdk";
 import { StatusCodes } from "http-status-codes";
 
 import {
@@ -13,7 +14,17 @@ import type {
   RemoteInitErrorClassification,
   StagehandConstructorOptions,
 } from "./remote-types.js";
-import type { ConnectionTarget, RemoteConnectionTarget } from "./types.js";
+import type {
+  BrowserbaseIdentity,
+  ConnectionTarget,
+  RemoteConnectionTarget,
+} from "./types.js";
+
+type BrowserbaseDebugClient = {
+  sessions: {
+    debug(sessionId: string): Promise<{ debuggerUrl?: string }>;
+  };
+};
 
 /**
  * Real Browserbase capability. This is the ONLY module that reads
@@ -54,8 +65,7 @@ export async function remoteStagehandOptions(
   // env (e.g. a daemon that was started with a key). Threading the value here
   // avoids writing the key back into the daemon's `process.env`. The project id
   // is left to Stagehand to resolve (constructor opt → env → inferred from key).
-  const apiKey =
-    forwardedEnv?.BROWSERBASE_API_KEY ?? process.env.BROWSERBASE_API_KEY;
+  const apiKey = resolveApiKey(forwardedEnv);
   if (!apiKey) {
     throw new Error(
       "Missing BROWSERBASE_API_KEY for remote mode. Pass --local to run a managed local browser (no key needed), or set BROWSERBASE_API_KEY for cloud sessions.",
@@ -76,16 +86,45 @@ export async function remoteStagehandOptions(
 
   return {
     apiKey,
-    browserbaseSessionCreateParams: {
+    browser: {
+      type: "browserbase",
       userMetadata,
       ...(target?.proxies ? { proxies: true } : {}),
       ...(target?.verified ? { browserSettings: { verified: true } } : {}),
     },
-    disableAPI: true,
-    disablePino: true,
-    env: "BROWSERBASE",
-    verbose: 0,
+    logging: { level: "off" },
   };
+}
+
+export async function remoteBrowserbaseIdentity(
+  sessionId: string,
+  forwardedEnv?: ForwardedEnv,
+  browserbase?: BrowserbaseDebugClient,
+): Promise<BrowserbaseIdentity> {
+  const normalizedSessionId = sessionId.trim();
+  if (!normalizedSessionId) return {};
+
+  const identity: BrowserbaseIdentity = {
+    browserbaseSessionId: normalizedSessionId,
+    browserbaseSessionUrl: `https://www.browserbase.com/sessions/${normalizedSessionId}`,
+  };
+  const apiKey = resolveApiKey(forwardedEnv);
+  if (!apiKey) return identity;
+
+  try {
+    const client = browserbase ?? new Browserbase({ apiKey });
+    const { debuggerUrl } = await client.sessions.debug(normalizedSessionId);
+    if (debuggerUrl) {
+      identity.browserbaseDebugUrl = debuggerUrl;
+    }
+  } catch {
+    // The stable session URL and ID are still useful if live-view lookup fails.
+  }
+  return identity;
+}
+
+function resolveApiKey(forwardedEnv?: ForwardedEnv): string | undefined {
+  return forwardedEnv?.BROWSERBASE_API_KEY ?? process.env.BROWSERBASE_API_KEY;
 }
 
 /**

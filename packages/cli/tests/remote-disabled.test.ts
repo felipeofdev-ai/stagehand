@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   autoSelectRemoteTarget,
   forwardedEnvKeys,
+  remoteBrowserbaseIdentity,
   remoteDoctorCheck,
   remoteStagehandOptions,
   resolveExplicitRemoteTarget,
@@ -32,6 +33,10 @@ describe("remote.disabled (local-only capability)", () => {
 
   it("forwards no env keys (local-only never reaches the cloud)", () => {
     expect(forwardedEnvKeys()).toEqual([]);
+  });
+
+  it("does not resolve Browserbase identity", async () => {
+    await expect(remoteBrowserbaseIdentity()).resolves.toEqual({});
   });
 
   it("contains no BROWSERBASE_API_KEY reference in its source", async () => {

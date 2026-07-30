@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  remoteBrowserbaseIdentity,
   remoteStagehandOptions,
   resolveExplicitRemoteTarget,
 } from "../src/lib/driver/remote.js";
@@ -40,8 +41,7 @@ describe("remote.ts (Browserbase capability)", () => {
   // verified by identity-attribution.test.ts; here we assert only that the
   // attribution tag survives and that --verified/--proxies are threaded.
   it("keeps the browse_cli tag and adds no session settings by default", async () => {
-    const params = (await remoteStagehandOptions({ kind: "remote" }))
-      .browserbaseSessionCreateParams;
+    const params = (await remoteStagehandOptions({ kind: "remote" })).browser;
     expect((params?.userMetadata as Record<string, string>).browse_cli).toBe(
       "true",
     );
@@ -52,7 +52,7 @@ describe("remote.ts (Browserbase capability)", () => {
   it("threads proxies alone without touching browserSettings", async () => {
     const params = (
       await remoteStagehandOptions({ kind: "remote", proxies: true })
-    ).browserbaseSessionCreateParams;
+    ).browser;
     expect(params?.proxies).toBe(true);
     expect(params).not.toHaveProperty("browserSettings");
   });
@@ -60,7 +60,7 @@ describe("remote.ts (Browserbase capability)", () => {
   it("threads verified alone into browserSettings without proxies", async () => {
     const params = (
       await remoteStagehandOptions({ kind: "remote", verified: true })
-    ).browserbaseSessionCreateParams;
+    ).browser;
     expect(params?.browserSettings).toEqual({ verified: true });
     expect(params).not.toHaveProperty("proxies");
   });
@@ -72,7 +72,7 @@ describe("remote.ts (Browserbase capability)", () => {
         proxies: true,
         verified: true,
       })
-    ).browserbaseSessionCreateParams;
+    ).browser;
     expect(params?.proxies).toBe(true);
     expect(params?.browserSettings).toEqual({ verified: true });
   });
@@ -82,5 +82,22 @@ describe("remote.ts (Browserbase capability)", () => {
     await expect(remoteStagehandOptions({ kind: "remote" })).rejects.toThrow(
       /BROWSERBASE_API_KEY/,
     );
+  });
+
+  it("preserves remote session and live-view output fields", async () => {
+    const debug = async () => ({
+      debuggerUrl: "https://www.browserbase.com/live/session-test",
+    });
+
+    await expect(
+      remoteBrowserbaseIdentity(" session-test ", undefined, {
+        sessions: { debug },
+      }),
+    ).resolves.toEqual({
+      browserbaseDebugUrl: "https://www.browserbase.com/live/session-test",
+      browserbaseSessionId: "session-test",
+      browserbaseSessionUrl:
+        "https://www.browserbase.com/sessions/session-test",
+    });
   });
 });

@@ -2,7 +2,11 @@ import type { Stagehand } from "@browserbasehq/stagehand";
 
 import type { ForwardedEnv } from "./daemon/forwarded-env.js";
 import type { DriverModeFlags } from "./mode.js";
-import type { ConnectionTarget, RemoteConnectionTarget } from "./types.js";
+import type {
+  BrowserbaseIdentity,
+  ConnectionTarget,
+  RemoteConnectionTarget,
+} from "./types.js";
 
 export type StagehandConstructorOptions = ConstructorParameters<
   typeof Stagehand
@@ -59,6 +63,11 @@ export interface RemoteCapability {
     target?: RemoteConnectionTarget,
     forwardedEnv?: ForwardedEnv,
   ): Promise<StagehandConstructorOptions>;
+  /** Resolve the stable dashboard and best-effort live-view URLs for a session. */
+  remoteBrowserbaseIdentity(
+    sessionId: string,
+    forwardedEnv?: ForwardedEnv,
+  ): Promise<BrowserbaseIdentity>;
   /** Map a failed remote `stagehand.init()` to an actionable message + code. */
   classifyRemoteInitError(error: unknown): RemoteInitErrorClassification;
   /** Remediation strings for driver init failures. */
