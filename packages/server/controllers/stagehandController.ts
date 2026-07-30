@@ -32,7 +32,7 @@ export function createStagehandController(runtime: StagehandRuntime) {
     }
 
     const model = params.options?.model ?? state.initParams.model;
-    if (!model) {
+    if (typeof params.instruction === "string" && !model) {
       throw new Error("An LLM was not configured during Stagehand initialization");
     }
 

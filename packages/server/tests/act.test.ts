@@ -7,8 +7,10 @@ import {
   performUnderstudyMethod,
   waitForDomNetworkQuiet,
 } from "../handlers/handlerUtils/actHandlerUtils.js";
+import { createStagehandController } from "../controllers/stagehandController.js";
 import * as inference from "../inference.js";
 import { StagehandLogger } from "../logger.js";
+import type { StagehandRuntime } from "../runtime.js";
 import * as actService from "../services/actService.js";
 import type { Page } from "../understudy/page.js";
 
@@ -157,6 +159,76 @@ describe("act service", () => {
       },
       metadata: {},
     });
+  });
+
+  it("performs a supplied Action without a model or inference", async () => {
+    const frame = {};
+    const captureSnapshot = vi.fn();
+    const page = actPage(frame, captureSnapshot);
+    const clientLLMGenerate = vi.fn();
+    const logger = testLogger();
+
+    const result = await actService.act({
+      params: {
+        pageId: "page-1",
+        instruction: {
+          selector: "xpath=/html/body/button",
+          description: "Submit button",
+          method: "click",
+          arguments: [],
+        },
+      },
+      page,
+      clientLLMGenerate,
+      logger,
+    });
+
+    expect(waitForQuiet).not.toHaveBeenCalled();
+    expect(captureSnapshot).not.toHaveBeenCalled();
+    expect(clientLLMGenerate).not.toHaveBeenCalled();
+    expect(performAction).toHaveBeenCalledWith(
+      page,
+      frame,
+      "click",
+      "xpath=/html/body/button",
+      [],
+      logger,
+      undefined,
+    );
+    expect(result.data).toMatchObject({
+      success: true,
+      actions: [{ selector: "xpath=/html/body/button" }],
+    });
+  });
+
+  it("does not attempt model-backed self-healing without a model", async () => {
+    const captureSnapshot = vi.fn();
+    const page = actPage({}, captureSnapshot);
+    const clientLLMGenerate = vi.fn();
+    performAction.mockRejectedValueOnce(new Error("Element detached"));
+
+    const result = await actService.act({
+      params: {
+        pageId: "page-1",
+        instruction: {
+          selector: "xpath=/html/body/button",
+          description: "Submit button",
+          method: "click",
+          arguments: [],
+        },
+      },
+      page,
+      clientLLMGenerate,
+      logger: testLogger(),
+      selfHeal: true,
+    });
+
+    expect(result.data).toMatchObject({
+      success: false,
+      message: "Failed to perform act: Element detached",
+    });
+    expect(captureSnapshot).not.toHaveBeenCalled();
+    expect(clientLLMGenerate).not.toHaveBeenCalled();
   });
 
   it("self-heals a supplied Action after deterministic replay fails", async () => {
@@ -429,6 +501,77 @@ describe("act service", () => {
 
     expect(clientLLMGenerate).not.toHaveBeenCalled();
     now.mockRestore();
+  });
+});
+
+describe("act controller", () => {
+  beforeEach(() => {
+    performAction.mockReset().mockResolvedValue();
+    waitForQuiet.mockReset().mockResolvedValue();
+  });
+
+  it("allows a supplied Action through an initialization without a model", async () => {
+    const page = actPage({}, vi.fn());
+    const resolveUnderstudyPage = vi.fn(() => page);
+    const runtime = {
+      adapters: { clientLLMGenerate: vi.fn() },
+      resolveUnderstudyPage,
+      state: {
+        getState: () => ({
+          status: "initialized",
+          initParams: {
+            domSettleTimeoutMs: 2_000,
+            selfHeal: true,
+            systemPrompt: "",
+          },
+        }),
+      },
+    } as unknown as StagehandRuntime;
+    const controller = createStagehandController(runtime);
+
+    await expect(
+      controller.act(
+        {
+          pageId: "page-1",
+          instruction: {
+            selector: "xpath=/html/body/button",
+            description: "Submit button",
+            method: "click",
+            arguments: [],
+          },
+        },
+        { logger: testLogger() },
+      ),
+    ).resolves.toMatchObject({ data: { success: true } });
+
+    expect(resolveUnderstudyPage).toHaveBeenCalledWith("page-1");
+    expect(runtime.adapters.clientLLMGenerate).not.toHaveBeenCalled();
+  });
+
+  it("still rejects a natural-language instruction without a model", async () => {
+    const resolveUnderstudyPage = vi.fn();
+    const runtime = {
+      adapters: { clientLLMGenerate: vi.fn() },
+      resolveUnderstudyPage,
+      state: {
+        getState: () => ({
+          status: "initialized",
+          initParams: { selfHeal: true, systemPrompt: "" },
+        }),
+      },
+    } as unknown as StagehandRuntime;
+    const controller = createStagehandController(runtime);
+
+    await expect(
+      controller.act(
+        {
+          pageId: "page-1",
+          instruction: "Click the submit button",
+        },
+        { logger: testLogger() },
+      ),
+    ).rejects.toThrow("An LLM was not configured during Stagehand initialization");
+    expect(resolveUnderstudyPage).not.toHaveBeenCalled();
   });
 });
 

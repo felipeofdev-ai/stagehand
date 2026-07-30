@@ -1,11 +1,14 @@
-import { promises as fs } from "node:fs";
+import fs from "node:fs/promises";
 import net from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
+import { elementsHandlers } from "../src/lib/driver/commands/elements.js";
+import { mouseHandlers } from "../src/lib/driver/commands/mouse.js";
 import { navigationHandlers } from "../src/lib/driver/commands/navigation.js";
+import { networkHandlers } from "../src/lib/driver/commands/network.js";
 import { resolveSelector } from "../src/lib/driver/commands/selectors.js";
 import { formatSnapshotTree } from "../src/lib/driver/commands/snapshot-format.js";
 import { snapshotHandlers } from "../src/lib/driver/commands/snapshot.js";
@@ -190,6 +193,228 @@ describe("driver commands", () => {
       timeout: 5_000,
       waitUntil: "load",
     });
+  });
+
+  it("routes selector click and fill through deterministic V4 actions", async () => {
+    const page = { keyPress: vi.fn() };
+    const act = vi.fn().mockResolvedValue({
+      data: {
+        success: true,
+        message: "Action completed",
+        actionDescription: "action",
+        actions: [],
+      },
+      metadata: {},
+    });
+    const manager = {
+      activePage: vi.fn(async () => page),
+      resolveSelector: vi.fn((selector: string) =>
+        selector === "@0-1" ? "/html/body/button" : selector,
+      ),
+      stagehandInstance: vi.fn(async () => ({ act })),
+    } as unknown as Parameters<
+      NonNullable<(typeof elementsHandlers)["click"]>
+    >[0];
+
+    await expect(
+      elementsHandlers.click!(manager, { selector: "@0-1" }),
+    ).resolves.toEqual({ clicked: true });
+    await expect(
+      elementsHandlers.fill!(manager, {
+        pressEnter: true,
+        selector: "#email",
+        value: "user@example.com",
+      }),
+    ).resolves.toEqual({ filled: true, pressedEnter: true });
+
+    expect(act).toHaveBeenNthCalledWith(
+      1,
+      {
+        arguments: [],
+        description: "click element",
+        method: "click",
+        selector: "/html/body/button",
+      },
+      { page },
+    );
+    expect(act).toHaveBeenNthCalledWith(
+      2,
+      {
+        arguments: ["user@example.com"],
+        description: "fill element",
+        method: "fill",
+        selector: "#email",
+      },
+      { page },
+    );
+    expect(page.keyPress).toHaveBeenCalledWith("Enter");
+  });
+
+  it("surfaces a deterministic V4 action failure instead of reporting success", async () => {
+    const page = {};
+    const manager = {
+      activePage: vi.fn(async () => page),
+      resolveSelector: vi.fn((selector: string) => selector),
+      stagehandInstance: vi.fn(async () => ({
+        act: vi.fn().mockResolvedValue({
+          data: {
+            success: false,
+            message: "Failed to perform act: Element detached",
+            actionDescription: "click element",
+            actions: [],
+          },
+          metadata: {},
+        }),
+      })),
+    } as unknown as Parameters<
+      NonNullable<(typeof elementsHandlers)["click"]>
+    >[0];
+
+    await expect(
+      elementsHandlers.click!(manager, { selector: "#submit" }),
+    ).rejects.toThrow("Failed to perform act: Element detached");
+  });
+
+  it("keeps value-returning select and highlight on V4 locators", async () => {
+    const locator = {
+      highlight: vi.fn(),
+      selectOption: vi.fn().mockResolvedValue(["green", "blue"]),
+    };
+    const page = { locator: vi.fn(() => locator) };
+    const manager = {
+      activePage: vi.fn(async () => page),
+      resolveSelector: vi.fn((selector: string) => selector),
+    } as unknown as Parameters<
+      NonNullable<(typeof elementsHandlers)["select"]>
+    >[0];
+
+    await expect(
+      elementsHandlers.select!(manager, {
+        selector: "#colors",
+        values: ["green", "blue"],
+      }),
+    ).resolves.toEqual({ selected: ["green", "blue"] });
+    await expect(
+      elementsHandlers.highlight!(manager, {
+        durationMs: 750,
+        selector: "#colors",
+      }),
+    ).resolves.toEqual({ highlighted: true });
+
+    expect(page.locator).toHaveBeenNthCalledWith(1, "#colors");
+    expect(page.locator).toHaveBeenNthCalledWith(2, "#colors");
+    expect(locator.selectOption).toHaveBeenCalledWith(["green", "blue"]);
+    expect(locator.highlight).toHaveBeenCalledWith({ durationMs: 750 });
+  });
+
+  it("preserves coordinate mouse arguments and XPath results on V4 pages", async () => {
+    const page = {
+      click: vi.fn().mockResolvedValue("xpath=/html/body/button"),
+      dragAndDrop: vi
+        .fn()
+        .mockResolvedValue([
+          "xpath=/html/body/div[1]",
+          "xpath=/html/body/div[2]",
+        ]),
+      hover: vi.fn().mockResolvedValue("xpath=/html/body/a"),
+      scroll: vi.fn().mockResolvedValue("xpath=/html/body/main"),
+    };
+    const manager = {
+      activePage: vi.fn(async () => page),
+    } as unknown as Parameters<
+      NonNullable<(typeof mouseHandlers)["mouse.click"]>
+    >[0];
+
+    await expect(
+      mouseHandlers["mouse.click"]!(manager, {
+        button: "right",
+        clickCount: 2,
+        returnXPath: true,
+        x: 10,
+        y: 20,
+      }),
+    ).resolves.toEqual({
+      clicked: true,
+      xpath: "xpath=/html/body/button",
+    });
+    await expect(
+      mouseHandlers["mouse.hover"]!(manager, {
+        returnXPath: true,
+        x: 30,
+        y: 40,
+      }),
+    ).resolves.toEqual({
+      hovered: true,
+      xpath: "xpath=/html/body/a",
+    });
+    await expect(
+      mouseHandlers["mouse.scroll"]!(manager, {
+        deltaX: 5,
+        deltaY: 500,
+        returnXPath: true,
+        x: 50,
+        y: 60,
+      }),
+    ).resolves.toEqual({
+      scrolled: true,
+      xpath: "xpath=/html/body/main",
+    });
+    await expect(
+      mouseHandlers["mouse.drag"]!(manager, {
+        button: "left",
+        delay: 25,
+        fromX: 70,
+        fromY: 80,
+        returnXPath: true,
+        steps: 4,
+        toX: 90,
+        toY: 100,
+      }),
+    ).resolves.toEqual({
+      dragged: true,
+      fromXpath: "xpath=/html/body/div[1]",
+      toXpath: "xpath=/html/body/div[2]",
+      xpath: "xpath=/html/body/div[1]",
+    });
+
+    expect(page.click).toHaveBeenCalledWith(10, 20, {
+      button: "right",
+      clickCount: 2,
+      returnXpath: true,
+    });
+    expect(page.hover).toHaveBeenCalledWith(30, 40, {
+      returnXpath: true,
+    });
+    expect(page.scroll).toHaveBeenCalledWith(50, 60, 5, 500, {
+      returnXpath: true,
+    });
+    expect(page.dragAndDrop).toHaveBeenCalledWith(70, 80, 90, 100, {
+      button: "left",
+      delay: 25,
+      returnXpath: true,
+      steps: 4,
+    });
+  });
+
+  it("fails explicitly for V4 capabilities that are not exposed yet", async () => {
+    const manager = {
+      resolveSelector: vi.fn((selector: string) => selector),
+    } as unknown as Parameters<
+      NonNullable<(typeof elementsHandlers)["upload"]>
+    >[0];
+
+    await expect(
+      elementsHandlers.upload!(manager, {
+        files: ["/tmp/file.txt"],
+        selector: "input[type=file]",
+      }),
+    ).rejects.toThrow("File upload is not yet available through Stagehand V4");
+    await expect(networkHandlers["network.on"]!(manager, {})).rejects.toThrow(
+      "Network capture is not yet exposed by the Stagehand V4 client",
+    );
+    await expect(runtimeHandlers.cursor!(manager, {})).rejects.toThrow(
+      "visible cursor overlay is not yet exposed by the Stagehand V4 client",
+    );
   });
 
   it("selects a remaining tab after closing the active tab", async () => {

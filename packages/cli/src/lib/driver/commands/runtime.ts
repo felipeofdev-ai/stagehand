@@ -1,4 +1,4 @@
-import { promises as fs } from "node:fs";
+import fs from "node:fs/promises";
 
 import { z } from "zod";
 
@@ -86,10 +86,10 @@ export const runtimeHandlers: DriverCommandHandlers = {
     return { waited: true };
   },
 
-  async cursor(manager) {
-    const page = await manager.activePage();
-    await page.enableCursorOverlay();
-    return { cursor: "enabled" };
+  async cursor() {
+    throw new Error(
+      "The visible cursor overlay is not yet exposed by the Stagehand V4 client.",
+    );
   },
 };
 

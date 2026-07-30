@@ -1,5 +1,7 @@
+import type { Action } from "@browserbasehq/stagehand";
 import { z } from "zod";
 
+import type { DriverSessionManager } from "../session-manager.js";
 import type { DriverCommandHandlers } from "./types.js";
 
 export const elementsHandlers: DriverCommandHandlers = {
@@ -7,13 +9,12 @@ export const elementsHandlers: DriverCommandHandlers = {
     const { selector } = z
       .object({ selector: z.string().min(1) })
       .parse(params);
-    const stagehand = await manager.stagehandInstance();
-    await stagehand.act({
+    await performAction(manager, {
       arguments: [],
       description: "click element",
       method: "click",
       selector: manager.resolveSelector(selector),
-    } as never);
+    });
     return { clicked: true };
   },
 
@@ -25,13 +26,12 @@ export const elementsHandlers: DriverCommandHandlers = {
         value: z.string(),
       })
       .parse(params);
-    const stagehand = await manager.stagehandInstance();
-    await stagehand.act({
+    await performAction(manager, {
       arguments: [value],
       description: "fill element",
       method: "fill",
       selector: manager.resolveSelector(selector),
-    } as never);
+    });
     if (pressEnter) {
       const page = await manager.activePage();
       await page.keyPress("Enter");
@@ -48,7 +48,7 @@ export const elementsHandlers: DriverCommandHandlers = {
       .parse(params);
     const page = await manager.activePage();
     const selected = await page
-      .deepLocator(manager.resolveSelector(selector))
+      .locator(manager.resolveSelector(selector))
       .selectOption(values);
     return { selected };
   },
@@ -60,11 +60,9 @@ export const elementsHandlers: DriverCommandHandlers = {
         selector: z.string().min(1),
       })
       .parse(params);
-    const page = await manager.activePage();
-    await page
-      .deepLocator(manager.resolveSelector(selector))
-      .setInputFiles(files.length === 1 ? files[0]! : files);
-    return { files, uploaded: true };
+    throw new Error(
+      `File upload is not yet available through Stagehand V4 (${files.length} file${files.length === 1 ? "" : "s"} requested for ${manager.resolveSelector(selector)}).`,
+    );
   },
 
   async highlight(manager, params) {
@@ -76,8 +74,20 @@ export const elementsHandlers: DriverCommandHandlers = {
       .parse(params);
     const page = await manager.activePage();
     await page
-      .deepLocator(manager.resolveSelector(selector))
+      .locator(manager.resolveSelector(selector))
       .highlight({ durationMs: durationMs ?? 2000 });
     return { highlighted: true };
   },
 };
+
+async function performAction(
+  manager: DriverSessionManager,
+  action: Action,
+): Promise<void> {
+  const stagehand = await manager.stagehandInstance();
+  const page = await manager.activePage();
+  const result = await stagehand.act(action, { page });
+  if (!result.data.success) {
+    throw new Error(result.data.message);
+  }
+}
