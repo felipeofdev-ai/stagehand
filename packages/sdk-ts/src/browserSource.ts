@@ -8,6 +8,7 @@ import {
   type BrowserbaseSessionClient,
   type BrowserbaseSessionClientFactory,
 } from "./browserbaseSession.js";
+import { STAGEHAND_EXTENSION_DIRECTORY_PATH } from "./extensionAssets.js";
 
 export type { BrowserbaseSessionClient, BrowserbaseSessionClientFactory };
 
@@ -32,9 +33,11 @@ export type ResolvedBrowserSource = {
   close?: () => Promise<void> | void;
 };
 
-export type LocalBrowserLauncher = (
-  options: LocalBrowserLaunchOptions,
-) => Promise<{ cdpUrl: string; close: () => Promise<void> | void }>;
+export type LocalBrowserLauncher = (options: LocalBrowserLaunchOptions) => Promise<{
+  cdpUrl: string;
+  preloadedExtension?: true;
+  close: () => Promise<void> | void;
+}>;
 
 export type BrowserSourceResolverDependencies = {
   launchLocalBrowser?: LocalBrowserLauncher;
@@ -73,6 +76,7 @@ export async function resolveBrowserSource(
     const launched = await (dependencies.launchLocalBrowser ?? launchLocalBrowser)(launchOptions);
     return {
       cdpUrl: launched.cdpUrl,
+      ...(launched.preloadedExtension ? { preloadedExtension: true } : {}),
       keepAlive: launchOptions.keepAlive ?? false,
       close: launched.close,
     };
@@ -85,12 +89,14 @@ export async function resolveBrowserSource(
   };
 }
 
-async function launchLocalBrowser(
-  options: LocalBrowserLaunchOptions,
-): Promise<{ cdpUrl: string; close: () => void }> {
+async function launchLocalBrowser(options: LocalBrowserLaunchOptions): Promise<{
+  cdpUrl: string;
+  preloadedExtension: true;
+  close: () => void;
+}> {
   const { getChromePath, launch, Launcher } = await import("chrome-launcher");
   const chrome = await launch({
-    chromePath: getChromePath(),
+    chromePath: options.executablePath ?? getChromePath(),
     startingUrl: "about:blank",
     ignoreDefaultFlags: true,
     chromeFlags: localBrowserChromeFlags(options, Launcher.defaultFlags(), Boolean(process.env.CI)),
@@ -101,6 +107,7 @@ async function launchLocalBrowser(
 
   return {
     cdpUrl: `http://127.0.0.1:${chrome.port}`,
+    preloadedExtension: true,
     close: () => chrome.kill(),
   };
 }
@@ -109,6 +116,7 @@ export function localBrowserChromeFlags(
   options: LocalBrowserLaunchOptions,
   launcherDefaultFlags: string[],
   isCI: boolean,
+  extensionDir = STAGEHAND_EXTENSION_DIRECTORY_PATH,
 ): string[] {
   const ignoredDefaultArgs = options.ignoreDefaultArgs;
   const ignoredFlags = new Set(Array.isArray(ignoredDefaultArgs) ? ignoredDefaultArgs : []);
@@ -123,7 +131,9 @@ export function localBrowserChromeFlags(
     ...(includeDefaults
       ? STAGEHAND_DEFAULT_CHROME_FLAGS.filter((flag) => !ignoredFlags.has(flag))
       : []),
-    ...(options.headless === true ? ["--headless"] : []),
+    `--disable-extensions-except=${extensionDir}`,
+    `--load-extension=${extensionDir}`,
+    ...(options.headless === true ? ["--headless=new"] : []),
     ...(options.devtools ? ["--auto-open-devtools-for-tabs"] : []),
     ...(isCI ? ["--no-sandbox"] : []),
     ...(options.args ?? []),

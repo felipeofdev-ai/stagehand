@@ -84,6 +84,7 @@ describe("resolveBrowserSource", () => {
     const close = vi.fn();
     const launchLocalBrowser = vi.fn(async () => ({
       cdpUrl: "http://127.0.0.1:9222",
+      preloadedExtension: true as const,
       close,
     }));
 
@@ -100,6 +101,7 @@ describe("resolveBrowserSource", () => {
       ),
     ).resolves.toStrictEqual({
       cdpUrl: "http://127.0.0.1:9222",
+      preloadedExtension: true,
       keepAlive: true,
       close,
     });
@@ -149,14 +151,17 @@ describe("resolveBrowserSource", () => {
 
 describe("localBrowserChromeFlags", () => {
   const launcherDefaults = ["--disable-extensions", "--disable-background-networking"];
+  const extensionDir = "/tmp/stagehand-extension";
 
   it("enables WebMCP without disabling the Stagehand extension", () => {
-    expect(localBrowserChromeFlags({}, launcherDefaults, false)).toEqual([
+    expect(localBrowserChromeFlags({}, launcherDefaults, false, extensionDir)).toEqual([
       "--disable-background-networking",
       "--enable-unsafe-extension-debugging",
       "--remote-allow-origins=*",
       "--window-size=1280,800",
       WEBMCP_CHROME_FLAG,
+      `--disable-extensions-except=${extensionDir}`,
+      `--load-extension=${extensionDir}`,
     ]);
   });
 
@@ -169,8 +174,13 @@ describe("localBrowserChromeFlags", () => {
         },
         launcherDefaults,
         false,
+        extensionDir,
       ),
-    ).toEqual(["--user-supplied"]);
+    ).toEqual([
+      `--disable-extensions-except=${extensionDir}`,
+      `--load-extension=${extensionDir}`,
+      "--user-supplied",
+    ]);
   });
 
   it("selectively omits the WebMCP flag while retaining other defaults", () => {
@@ -180,11 +190,13 @@ describe("localBrowserChromeFlags", () => {
       },
       launcherDefaults,
       false,
+      extensionDir,
     );
 
     expect(flags).not.toContain(WEBMCP_CHROME_FLAG);
     expect(flags).toContain("--disable-background-networking");
     expect(flags).toContain("--enable-unsafe-extension-debugging");
+    expect(flags).toContain(`--load-extension=${extensionDir}`);
   });
 
   it("appends launch options and user arguments after defaults", () => {
@@ -196,10 +208,11 @@ describe("localBrowserChromeFlags", () => {
       },
       launcherDefaults,
       true,
+      extensionDir,
     );
 
     expect(flags.slice(-4)).toEqual([
-      "--headless",
+      "--headless=new",
       "--auto-open-devtools-for-tabs",
       "--no-sandbox",
       "--custom-flag",
