@@ -7,10 +7,7 @@ import {
 } from "./commands/selectors.js";
 import { executeDriverCommand } from "./commands/registry.js";
 import type { DriverCommandName } from "./commands/types.js";
-import {
-  forwardedEnvSignature,
-  type ForwardedEnv,
-} from "./daemon/forwarded-env.js";
+import { forwardedEnvSignature, type ForwardedEnv } from "./daemon/forwarded-env.js";
 import { DriverError } from "./errors.js";
 import { discoverLocalCdp } from "./local-cdp-discovery.js";
 import { NetworkCapture } from "./network-capture.js";
@@ -24,9 +21,7 @@ import type {
 } from "./types.js";
 
 export type DriverContext = Stagehand["context"];
-export type DriverPage = NonNullable<
-  Awaited<ReturnType<DriverContext["activePage"]>>
->;
+export type DriverPage = NonNullable<Awaited<ReturnType<DriverContext["activePage"]>>>;
 
 const INIT_FAILURE_RETRY_MS = 5_000;
 const INIT_FAILURE_RETRY_MAX_MS = 60_000;
@@ -51,10 +46,7 @@ interface InitFailure {
  */
 export function initFailureBackoffMs(consecutiveFailures: number): number {
   const attempt = Math.max(1, consecutiveFailures);
-  return Math.min(
-    INIT_FAILURE_RETRY_MS * 2 ** (attempt - 1),
-    INIT_FAILURE_RETRY_MAX_MS,
-  );
+  return Math.min(INIT_FAILURE_RETRY_MS * 2 ** (attempt - 1), INIT_FAILURE_RETRY_MAX_MS);
 }
 
 export function isChromeNotFoundError(error: unknown): boolean {
@@ -62,10 +54,7 @@ export function isChromeNotFoundError(error: unknown): boolean {
   if (typeof code === "string" && CHROME_NOT_FOUND_ERROR_CODES.has(code)) {
     return true;
   }
-  return (
-    error instanceof Error &&
-    error.message.includes("No Chrome installations found")
-  );
+  return error instanceof Error && error.message.includes("No Chrome installations found");
 }
 
 export class DriverSessionManager {
@@ -93,10 +82,7 @@ export class DriverSessionManager {
     return (await this.execute("open", { url })) as OpenResult;
   }
 
-  async execute(
-    command: DriverCommandName,
-    params?: unknown,
-  ): Promise<unknown> {
+  async execute(command: DriverCommandName, params?: unknown): Promise<unknown> {
     return executeDriverCommand(this, command, params);
   }
 
@@ -244,9 +230,7 @@ export class DriverSessionManager {
     return safeTitle(page);
   }
 
-  private async ensurePage(
-    options: { createIfMissing?: boolean } = {},
-  ): Promise<DriverPage> {
+  private async ensurePage(options: { createIfMissing?: boolean } = {}): Promise<DriverPage> {
     await this.ensureInitialized();
     if (!this.context) {
       throw new Error("Driver context failed to initialize.");
@@ -258,17 +242,14 @@ export class DriverSessionManager {
         (candidate) => candidate.pageId === target.targetId,
       );
       if (!page) {
-        throw new Error(
-          `Target ${target.targetId} was not found in the attached browser.`,
-        );
+        throw new Error(`Target ${target.targetId} was not found in the attached browser.`);
       }
       await this.activateIfNeeded(page);
       this.selectedTargetId = page.pageId;
       return page;
     }
 
-    const existingPage =
-      (await this.activePageIfPresent()) ?? (await this.context.pages())[0];
+    const existingPage = (await this.activePageIfPresent()) ?? (await this.context.pages())[0];
     if (existingPage) {
       await this.activateIfNeeded(existingPage);
       this.selectedTargetId = existingPage.pageId;
@@ -333,8 +314,7 @@ export class DriverSessionManager {
         const failure = await this.markRepeatedInitFailure(error);
         this.initFailure = {
           error: failure,
-          retryAt:
-            Date.now() + initFailureBackoffMs(this.consecutiveInitFailures),
+          retryAt: Date.now() + initFailureBackoffMs(this.consecutiveInitFailures),
         };
         throw failure;
       })
@@ -395,9 +375,7 @@ export class DriverSessionManager {
     target: ConnectionTarget,
   ): Promise<ConstructorParameters<typeof Stagehand>[0]> {
     if (target.kind === "remote") {
-      return await (
-        await getRemote()
-      ).remoteStagehandOptions(target, this.pendingEnv);
+      return await (await getRemote()).remoteStagehandOptions(target, this.pendingEnv);
     }
 
     if (target.kind === "managed-local") {
@@ -442,27 +420,19 @@ async function safeTitle(page: DriverPage): Promise<string> {
  * local Chrome gets install/escape-hatch guidance. Anything else is rethrown
  * unchanged.
  */
-async function describeInitError(
-  error: unknown,
-  target: ConnectionTarget,
-): Promise<unknown> {
+async function describeInitError(error: unknown, target: ConnectionTarget): Promise<unknown> {
   if (error instanceof DriverError) return error;
 
   if (target.kind === "remote") {
-    const { code, httpStatus, message } = (
-      await getRemote()
-    ).classifyRemoteInitError(error);
+    const { code, httpStatus, message } = (await getRemote()).classifyRemoteInitError(error);
     return new DriverError(message, { cause: error, code, httpStatus });
   }
 
   if (target.kind === "managed-local" && isChromeNotFoundError(error)) {
-    return new DriverError(
-      (await getRemote()).driverInitHints().chromeNotFound,
-      {
-        cause: error,
-        code: "no_chrome_found",
-      },
-    );
+    return new DriverError((await getRemote()).driverInitHints().chromeNotFound, {
+      cause: error,
+      code: "no_chrome_found",
+    });
   }
 
   return error;

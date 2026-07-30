@@ -6,9 +6,7 @@ import type { DriverCommandHandlers } from "./types.js";
 
 export const elementsHandlers: DriverCommandHandlers = {
   async click(manager, params) {
-    const { selector } = z
-      .object({ selector: z.string().min(1) })
-      .parse(params);
+    const { selector } = z.object({ selector: z.string().min(1) }).parse(params);
     await performAction(manager, {
       arguments: [],
       description: "click element",
@@ -47,9 +45,7 @@ export const elementsHandlers: DriverCommandHandlers = {
       })
       .parse(params);
     const page = await manager.activePage();
-    const selected = await page
-      .locator(manager.resolveSelector(selector))
-      .selectOption(values);
+    const selected = await page.locator(manager.resolveSelector(selector)).selectOption(values);
     return { selected };
   },
 
@@ -80,10 +76,7 @@ export const elementsHandlers: DriverCommandHandlers = {
   },
 };
 
-async function performAction(
-  manager: DriverSessionManager,
-  action: Action,
-): Promise<void> {
+async function performAction(manager: DriverSessionManager, action: Action): Promise<void> {
   const stagehand = await manager.stagehandInstance();
   const page = await manager.activePage();
   const result = await stagehand.act(action, { page });

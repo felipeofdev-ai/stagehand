@@ -1,11 +1,7 @@
 import Browserbase from "@browserbasehq/sdk";
 import { StatusCodes } from "http-status-codes";
 
-import {
-  getCliVersion,
-  resolveInstallId,
-  toMetadataValue,
-} from "../identity.js";
+import { getCliVersion, resolveInstallId, toMetadataValue } from "../identity.js";
 import type { ForwardedEnv } from "./daemon/forwarded-env.js";
 import type { DriverModeFlags } from "./mode.js";
 import type {
@@ -14,11 +10,7 @@ import type {
   RemoteInitErrorClassification,
   StagehandConstructorOptions,
 } from "./remote-types.js";
-import type {
-  BrowserbaseIdentity,
-  ConnectionTarget,
-  RemoteConnectionTarget,
-} from "./types.js";
+import type { BrowserbaseIdentity, ConnectionTarget, RemoteConnectionTarget } from "./types.js";
 
 type BrowserbaseDebugClient = {
   sessions: {
@@ -32,9 +24,7 @@ type BrowserbaseDebugClient = {
  * local-only artifacts cannot reach Browserbase.
  */
 
-export function resolveExplicitRemoteTarget(
-  flags: DriverModeFlags,
-): ConnectionTarget {
+export function resolveExplicitRemoteTarget(flags: DriverModeFlags): ConnectionTarget {
   return {
     kind: "remote",
     ...(flags.verified ? { verified: true } : {}),
@@ -131,9 +121,7 @@ function resolveApiKey(forwardedEnv?: ForwardedEnv): string | undefined {
  * Map a failed remote `stagehand.init()` to an actionable message and a
  * stable result code. Browserbase SDK errors carry an HTTP `status`.
  */
-export function classifyRemoteInitError(
-  error: unknown,
-): RemoteInitErrorClassification {
+export function classifyRemoteInitError(error: unknown): RemoteInitErrorClassification {
   const status = (error as { status?: unknown } | null | undefined)?.status;
   const httpStatus = typeof status === "number" ? status : undefined;
   const original = error instanceof Error ? error.message : String(error);
