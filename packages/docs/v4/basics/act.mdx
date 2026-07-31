@@ -287,6 +287,8 @@ await stagehand.act("choose 'Peach' from the favorite color dropdown", {
 <View title="Python" icon="python">
 ```python
 # Custom model configuration
+import os
+
 from stagehand import ModelConfig
 
 await stagehand.act(
@@ -352,6 +354,8 @@ console.log(result.metadata.cacheStatus); // "HIT", "MISS", or undefined
 
 <View title="Python" icon="python">
 ```python
+import os
+
 from stagehand import CacheOptions, Stagehand
 
 # Enable server-side caching for the entire instance
@@ -493,7 +497,7 @@ This works with:
 - **New pages:** create one with `context.newPage()`
 - **Existing browsers:** attach to a browser you already run with the `cdp` browser source
 
-<Card title="Complete API reference" icon="book" href="/v3/references/stagehand">
+<Card title="Complete API reference" icon="book" href="/v4/references/stagehand">
   See the full `Stagehand` reference for detailed parameter documentation, return values, and advanced examples.
 </Card>
 
@@ -579,6 +583,8 @@ await stagehand.act("click the login button");
 
 <View title="Python" icon="python">
 ```python
+import os
+
 from stagehand import CacheOptions, Stagehand
 
 stagehand = Stagehand(
