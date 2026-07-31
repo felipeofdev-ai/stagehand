@@ -475,8 +475,8 @@ class Stagehand:
 
     async def observe(
         self,
-        *,
         instruction: str | None = None,
+        *,
         page: Page | None = None,
         model: ModelConfig | None = None,
         variables: Variables | None = None,
@@ -510,9 +510,9 @@ class Stagehand:
 
     async def extract(
         self,
-        *,
         instruction: str,
         schema: builtins.type[ResultModel],
+        *,
         page: Page | None = None,
         model: ModelConfig | None = None,
         timeout: float | None = None,

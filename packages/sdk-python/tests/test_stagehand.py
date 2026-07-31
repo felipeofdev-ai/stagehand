@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import inspect
 from collections.abc import Awaitable, Callable
 from typing import TypeVar, cast
 
@@ -344,11 +345,11 @@ async def test_stagehand_ai_methods_resolve_pages_and_validate_results(
         locator=locator,
         cache=CacheOptions(threshold=1),
     )
-    actions = await stagehand.observe(instruction="Find the link", model=model, locator=locator)
+    actions = await stagehand.observe("Find the link", model=model, locator=locator)
     replay_result = await stagehand.act(actions.data[0], page=page)
     page_info = await stagehand.extract(
-        instruction="Extract the heading",
-        schema=PageInfo,
+        "Extract the heading",
+        PageInfo,
         page=page,
         model=model,
         screenshot=True,
@@ -633,3 +634,25 @@ async def test_cancelled_initialization_still_releases_the_browser_and_rpc_clien
     assert recording.closed is True
     assert browser_closed is True
     assert stagehand.initialized is False
+
+
+@pytest.mark.parametrize(
+    ("method", "positional"),
+    [
+        ("act", ["instruction"]),
+        ("observe", ["instruction"]),
+        ("extract", ["instruction", "schema"]),
+    ],
+)
+def test_semantic_arguments_stay_positional(method: str, positional: list[str]) -> None:
+    """TS and Go take these positionally; Python must match, with options keyword-only."""
+    parameters = list(inspect.signature(getattr(Stagehand, method)).parameters.values())
+    assert [
+        parameter.name
+        for parameter in parameters[1:]
+        if parameter.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
+    ] == positional
+    assert all(
+        parameter.kind is inspect.Parameter.KEYWORD_ONLY
+        for parameter in parameters[1 + len(positional) :]
+    )
